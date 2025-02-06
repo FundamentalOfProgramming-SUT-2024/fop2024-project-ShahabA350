@@ -12,6 +12,6 @@
 #include "main_menu.h"
 #include "sign_in.h"
 extern int xx,yy,lll,scoree;
-void load_game_state(struct user_data user, int map[5][200][200], int revealed[5][200][200],int health_bar[10], int food_stack[5], int hunger_bar[60], int *cx, int *cy,int *l,int levels[5],int themed[5][200][200]);
+void load_game_state(struct user_data user, int map[6][200][200], int revealed[6][200][200],int health_bar[10], int food_stack[5], int hunger_bar[60], int *cx, int *cy,int *l,int levels[5],int themed[6][200][200]);
 
 #endif 

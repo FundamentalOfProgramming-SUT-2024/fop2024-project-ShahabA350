@@ -60,7 +60,11 @@ void display_lock() {
     else{
             mvwprintw(lock_win,y-23,x+13,"%d",2000+year);}
      if(akey>0){mvwprintw(lock_win,16,20, "USE ANCIENT KEY?");}
-    while(wgetch(lock_win)!='t'){
+     int key=wgetch(lock_win);
+    while(key!='t'){
+        key=wgetch(lock_win);
+        if(key=='t'){break;}
+        if (key=='r'){mvwprintw(lock_win,y+5,10, "pass1=%d,pass2=%d",password,password2);}
         y=6;
         if(akey!=0){
         mvwprintw(lock_win,y+10, 20, "USE ANCIENT KEY?         ");}

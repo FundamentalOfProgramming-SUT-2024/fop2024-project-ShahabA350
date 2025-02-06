@@ -22,15 +22,22 @@
 #include "gun_menu.h"
 #include "difficulty_menu.h"
 #include "potion_menu.h"
+#include <unistd.h>
+#include "clash_room.h"
+#include "music.h"
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_mixer.h>
+#include "boss_fight.h"
 int k = 0, cx, cy, secret = 0, m = 0, foods = 0, eat = 0, coin = 0, score, forbidden = 0, placed = 0, crand, poison_m = 0, sickness = 0, health_m = 0, akey = 0, bkey = 0,
     healness = 0, trap_m, firsttime = 0, locked = 0, firstlock = 1, bplaced = 0, unlocked = 0, password = 9999, password2 = 9999, gofornext = 0, buttony, buttonx,
     error = 0, done = 0, picked_gun = 1, guns = 5, diff = 3, kplaced = 0,potion_stack[3]={1,2,3},potions=3,picked_potion=1,t_room=0,trand,endisnear=0,ends=0,allcoin=0,
-    xp=0,finished=0,myturn=0,direction=0,arrowy,dagger_limit=0,arrow_limit=0,arrowx,wound_limit=0,sword=0,heal=0,heal_boost=0,speed_boost=0,damage_boost=0,repeat,eaten=0,rott_limit[5]={0,0,0,0,0},win=0,forbid_continue=1;
+    xp=0,finished=0,myturn=0,direction=0,arrowy,dagger_limit=0,arrow_limit=0,arrowx,wound_limit=0,sword=0,heal=0,heal_boost=0,speed_boost=0,damage_boost=0,repeat,eaten=0,
+    rott_limit[5]={0,0,0,0,0},win=0,forbid_continue=1,clashed=0,beforel=0,beforecy=0,beforecx=0,musicplay=0,damage_to_boss=0,boss_defeated=0;
 int l = 0;
 int levels[5] = {0, 0, 0, 0, 0};
-int map[5][200][200];
-int themed[5][200][200];
-int revealed[5][200][200];
+int map[6][200][200];
+int themed[6][200][200];
+int revealed[6][200][200];
 int centers[10][2];
 int revealed_path[200][200];
 int health_bar[10] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
@@ -38,8 +45,8 @@ int food_stack[5] = {0, 0, 0, 0, 0};
 int hunger_bar[60] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
 int brand;
 int gun_stack[5] = {1, 2, 3, 4, 5};
-int enemy_health[5][200][200];
-int movable[5][200][200];
+int enemy_health[6][200][200];
+int movable[6][200][200];
 void *timer_function(void *arg)
 {
     init_pair(202, 202, COLOR_BLACK);
@@ -81,7 +88,7 @@ void *timer_function(void *arg)
         pthread_exit(NULL);
     }
 }
-void draw_rectangle(int ll, int w, int map[5][200][200], int index)
+void draw_rectangle(int ll, int w, int map[6][200][200], int index)
 {
     int chrand = rand() % 100;
     int temptheme = 0;
@@ -779,7 +786,6 @@ void draw_rectangle(int ll, int w, int map[5][200][200], int index)
             if (map[l][ey][ex - 1] == '.' || map[l][ey][ex - 1] == '|' || map[l][ey][ex - 1] == '^')
             {
                 map[l][ey][ex] = '>';
-                mvprintw(0, 40, "%d %d ", ey, ex);
                 break;
             }
             ex++;
@@ -1023,6 +1029,33 @@ void draw_secret_Rectangle(int my, int mx, int centersx, int centersy)
                         themed[l][y][x] = permtemp;
                     }
                 }
+                else if (permtemp == 1)
+                {
+                    int khrand = rand() % 4;
+                    if (khrand < 2 && x < startX + width - 2 && map[l][y][x - 1] != 'c')
+                    {
+                        if (rand() % 3 == 1)
+                        {
+                            map[l][y][x] = '6';
+                            themed[l][y][x] = permtemp;
+                        }
+                        else if(rand()%3 !=2)
+                        {
+                            map[l][y][x] = '7';
+                            themed[l][y][x] = permtemp;
+                        }
+                        else
+                        {
+                            map[l][y][x] = '8';
+                            themed[l][y][x] = permtemp;
+                        }
+                    }
+                    else
+                    {
+                        map[l][y][x] = '.';
+                        themed[l][y][x] = permtemp;
+                    }
+                }
                 else
                 {
                     map[l][y][x] = '.';
@@ -1166,7 +1199,6 @@ void window_reveal(int direction, int cy, int cx)
     
 }
 int check_dead(int j,int i){
-        mvprintw(41,0,"YOU KILLED UNDEAD...AGAIN                                            ");
 
      if(enemy_health[l][j][i]<=0&&map[l][j][i]=='U'){
     map[l][j][i]='.';
@@ -1204,7 +1236,7 @@ void display_health_bar()
 {
     xp+=100;
     start_color();
-    init_pair(100, COLOR_WHITE, COLOR_BLACK);
+    init_pair(100, COLOR_YELLOW, COLOR_BLACK);
     attron(COLOR_PAIR(100));
     if (l != 4)
     {
@@ -1216,7 +1248,7 @@ void display_health_bar()
     }
     attroff(COLOR_PAIR(100));
     init_pair(25, COLOR_MAGENTA, COLOR_MAGENTA);
-    init_pair(10, COLOR_WHITE, COLOR_RED);
+    init_pair(10, COLOR_BLACK, COLOR_RED);
     init_pair(50, 48, 48);
     for (int h = 0; h < 10; h++)
     {
@@ -1354,6 +1386,14 @@ int fight(int cx,int cy){
             damage();
             damage();
             break;
+        case 'B':
+         
+            damage();mvprintw(0,0,"THE BOSS CRASHED YOU!                           ");
+            damage();
+            damage();
+            damage();
+            damage();
+            break;
      }
      switch (map[l][cy-1][cx-1])
      {
@@ -1373,6 +1413,14 @@ int fight(int cx,int cy){
             break;
         case 'U':
             damage();mvprintw(0,0,"UNDEAD DAMAGES YOU!                           ");
+            damage();
+            damage();
+            break;
+        case 'B':
+         
+            damage();mvprintw(0,0,"THE BOSS CRASHED YOU!                           ");
+            damage();
+            damage();
             damage();
             damage();
             break;
@@ -1398,6 +1446,14 @@ int fight(int cx,int cy){
             damage();
             damage();
             break;
+        case 'B':
+         
+            damage();mvprintw(0,0,"THE BOSS CRASHED YOU!                           ");
+            damage();
+            damage();
+            damage();
+            damage();
+            break;
      }
      switch (map[l][cy-1][cx+1])
      {
@@ -1417,6 +1473,14 @@ int fight(int cx,int cy){
             break;
         case 'U':
             damage();mvprintw(0,0,"UNDEAD DAMAGES YOU!                           ");
+            damage();
+            damage();
+            break;
+        case 'B':
+         
+            damage();mvprintw(0,0,"THE BOSS CRASHED YOU!                           ");
+            damage();
+            damage();
             damage();
             damage();
             break;
@@ -1442,6 +1506,14 @@ int fight(int cx,int cy){
             damage();
             damage();
             break;
+        case 'B':
+         
+            damage();mvprintw(0,0,"THE BOSS CRASHED YOU!                           ");
+            damage();
+            damage();
+            damage();
+            damage();
+            break;
      }
      switch (map[l][cy-1][cx])
      {
@@ -1461,6 +1533,14 @@ int fight(int cx,int cy){
             break;
         case 'U':
             damage();mvprintw(0,0,"UNDEAD DAMAGES YOU!                           ");
+            damage();
+            damage();
+            break;
+        case 'B':
+         
+            damage();mvprintw(0,0,"THE BOSS CRASHED YOU!                           ");
+            damage();
+            damage();
             damage();
             damage();
             break;
@@ -1486,6 +1566,14 @@ int fight(int cx,int cy){
             damage();
             damage();
             break;
+        case 'B':
+         
+            damage();mvprintw(0,0,"THE BOSS CRASHED YOU!                           ");
+            damage();
+            damage();
+            damage();
+            damage();
+            break;
      }
      switch (map[l][cy][cx-1])
      {
@@ -1508,6 +1596,15 @@ int fight(int cx,int cy){
             damage();
             damage();
             break;
+        case 'B':
+         
+            damage();mvprintw(0,0,"THE BOSS CRASHED YOU!                           ");
+            damage();
+            damage();
+            damage();
+            damage();
+            break;
+        
      }
 
     }
@@ -1555,6 +1652,20 @@ int fight(int cx,int cy){
                             enemy_health[l][j][i]-=5;}
                             check_dead(j,i);
                         }
+                        else if(map[l][j][i]=='$'){
+                            mvprintw(0,0,"YOU HIT THE BOSS BY MACE -> 5 DAMAGE                               ");
+                           if(damage_boost){mvprintw(0,36,"+ 5"); repeat=2;}else{ repeat=1;}
+                            for(int rr=repeat;rr>0;rr--){
+                            enemy_health[l][j][i]-=5;damage_to_boss+=5;}
+                            check_dead(j,i);
+                        }
+                        else if(map[l][j][i]=='B'){
+                            mvprintw(0,0,"YOU HIT THE BOSS BY MACE -> 0 DAMAGE                               ");
+                           if(damage_boost){mvprintw(0,36,"+ 0"); repeat=2;}else{ repeat=1;}
+                            for(int rr=repeat;rr>0;rr--){
+                            enemy_health[l][j][i]-=5;}
+                            check_dead(j,i);
+                        }
                     }
                 }
              }
@@ -1596,6 +1707,20 @@ int fight(int cx,int cy){
                             enemy_health[l][j][i]-=10;}
                             check_dead(j,i);
                         }
+                        else if(map[l][j][i]=='$'){
+                            mvprintw(0,0,"YOU HIT THE BOSS BY SWORD -> 10 DAMAGE                                ");
+                           if(damage_boost){mvprintw(0,36,"+ 10"); repeat=2;}else{ repeat=1;}
+                            for(int rr=repeat;rr>0;rr--){
+                            enemy_health[l][j][i]-=10;damage_to_boss+=10;}
+                            check_dead(j,i);
+                        }
+                        else if(map[l][j][i]=='B'){
+                            mvprintw(0,0,"YOU HIT THE BOSS BY SWORD -> 0 DAMAGE                                ");
+                           if(damage_boost){mvprintw(0,36,"+ 0"); repeat=2;}else{ repeat=1;}
+                            for(int rr=repeat;rr>0;rr--){
+                            enemy_health[l][j][i]-=10;}
+                            check_dead(j,i);
+                        }
                     }
                 }
              }
@@ -1610,7 +1735,7 @@ int cha;
 void show_map()
 {
     init_pair(236, 236, COLOR_BLACK);
-    init_pair(244, 236, COLOR_WHITE);
+    init_pair(244, 236, COLOR_BLACK);
     init_pair(88, 88, COLOR_BLACK);
     attron(COLOR_PAIR(236));
     for (int i = 0; i < 50; i++)
@@ -1799,7 +1924,8 @@ void check_enemy(int cy, int cx) {
             j++;
             if ((map[l][j][i] == 'U' )&&movable[l][j][i]!=0&&movable[l][j][i]!=-1
             || (map[l][j][i] == 'G')&&movable[l][j][i]!=0&&movable[l][j][i]!=-1
-            || (map[l][j][i] == 'S' &&movable[l][j][i]!=0&&movable[l][j][i]!=-1)) {
+            || (map[l][j][i] == 'S' &&movable[l][j][i]!=0&&movable[l][j][i]!=-1)
+            || map[l][j][i] == 'B' ) {
                 move_enemy(j, i, cy, cx);
             }
             if(map[l][j][i] == 'U' ||map[l][j][i] == 'D' ||map[l][j][i] == 'S' ||map[l][j][i] == 'G' ||map[l][j][i] == 'F'){
@@ -1811,7 +1937,8 @@ void check_enemy(int cy, int cx) {
             j--;
             if ((map[l][j][i] == 'U' )&&movable[l][j][i]!=0&&movable[l][j][i]!=-1
             || (map[l][j][i] == 'G') &&movable[l][j][i]!=0&&movable[l][j][i]!=-1
-            || (map[l][j][i] == 'S' &&movable[l][j][i]!=0&&movable[l][j][i]!=-1)) {
+            || (map[l][j][i] == 'S' &&movable[l][j][i]!=0&&movable[l][j][i]!=-1)
+            || map[l][j][i] == 'B') {
                 move_enemy(j, i, cy, cx);
             }
             if(map[l][j][i] == 'U' ||map[l][j][i] == 'D' ||map[l][j][i] == 'S' ||map[l][j][i] == 'G' ||map[l][j][i] == 'F'){
@@ -1831,7 +1958,8 @@ void check_enemy(int cy, int cx) {
             j++;
             if ((map[l][j][i] == 'U' )&&movable[l][j][i]!=0&&movable[l][j][i]!=-1
             || (map[l][j][i] == 'G') &&movable[l][j][i]!=0&&movable[l][j][i]!=-1
-            || (map[l][j][i] == 'S' &&movable[l][j][i]!=0&&movable[l][j][i]!=-1)) {
+            || (map[l][j][i] == 'S' &&movable[l][j][i]!=0&&movable[l][j][i]!=-1)
+            || map[l][j][i] == 'B') {
                 move_enemy(j, i, cy, cx);
             }
             if(map[l][j][i] == 'U' ||map[l][j][i] == 'D' ||map[l][j][i] == 'S' ||map[l][j][i] == 'G' ||map[l][j][i] == 'F'){
@@ -1843,7 +1971,8 @@ void check_enemy(int cy, int cx) {
             j--;
             if ((map[l][j][i] == 'U' )&&movable[l][j][i]!=0&&movable[l][j][i]!=-1
             || (map[l][j][i] == 'G') &&movable[l][j][i]!=0&&movable[l][j][i]!=-1
-            || (map[l][j][i] == 'S' &&movable[l][j][i]!=0&&movable[l][j][i]!=-1)) {
+            || (map[l][j][i] == 'S' &&movable[l][j][i]!=0&&movable[l][j][i]!=-1)
+             || map[l][j][i] == 'B') {
                 move_enemy(j, i, cy, cx);
             }
             if(map[l][j][i] == 'U' ||map[l][j][i] == 'D' ||map[l][j][i] == 'S' ||map[l][j][i] == 'G' ||map[l][j][i] == 'F'){
@@ -1964,6 +2093,66 @@ int end() {
 }
     while (1)
     { 
+        // if(themed[5][cy][cx]==6){
+        //     int bossdone=0;
+        // for (int i = 0; i < 50; i++)
+        // {
+        //     for (int j = 0; j < 150; j++)
+        //     {
+        //         if(map[5][i][j]=='$')
+        //         {
+        //             map[5][i][j]='.';
+        //         }
+        //         if(map[5][i][j]=='B')
+        //         {
+        //             bossdone=1;
+        //             map[5][i+1][j-1]='$';map[5][i-1][j+1]='$';map[5][i-1][j-1]='$';map[5][i+1][j+1]='$';map[5][i+1][j]='$';map[5][i-1][j]='$';map[5][i][j+1]='$';map[5][i][j-1]='$';
+        //             break;
+        //         }     
+        //     }
+        //     if(bossdone==1){
+        //         bossdone=0;
+        //         break;
+        //     }
+        // }
+        // refresh();
+        // }
+        if(map[l][cy][cx]=='#'){
+            musicplay=1;
+            Mix_CloseAudio();
+        }
+        else if(themed[l][cy][cx]==1&&musicplay){
+            musicplay=0;
+            play_music("./soundtracks/1.mp3");
+        }
+        else if(themed[l][cy][cx]==2&&musicplay){
+            musicplay=0;
+            play_music("./soundtracks/2.mp3");
+        }
+        else if(themed[l][cy][cx]==3&&musicplay){
+            musicplay=0;
+            play_music("./soundtracks/3.mp3");
+        }
+        else if(themed[l][cy][cx]==5&&musicplay){
+            musicplay=0;
+            play_music("./soundtracks/5.mp3");
+        }
+        else if(themed[l][cy][cx]==6&&musicplay){
+            musicplay=0;
+            play_music("./soundtracks/6.mp3");
+        }
+        else if(map[l][cy][cx]=='?'&&musicplay){
+            musicplay=0;
+            play_music("./soundtracks/8.mp3");
+        }
+        else if(themed[l][cy][cx]==4&&musicplay){
+            musicplay=0;
+            play_music("./soundtracks/4.mp3");
+        }
+        else if(clashed&&musicplay){
+            musicplay=0;
+            play_music("./soundtracks/7.mp3");
+        }
         if(hunger_bar[41]==1&&heal>=8){
             heal=0;
             for (int h = 0; h < 10; h++)
@@ -1980,17 +2169,17 @@ int end() {
         }
         if(picked_gun==3){
 
-         mvprintw(41,60,  "                                    ⣴⣷⣷⣿⣷⣄");
-         mvprintw(42,60,  "  ==================================⣿⣿⣿⣿⣿⡯⣄");
-         mvprintw(43,60,  "  ==================================⣿⣿⣿⣿⣿⣷⠟");
-         mvprintw(44,60,  "                                    ⠙⣿⠟⢷⠟");
-         init_pair(16, COLOR_MAGENTA, COLOR_BLACK);
-         attron(COLOR_PAIR(16));
+         mvprintw(41,60,  "                                    ");
+         mvprintw(42,60,  "  ==================================");
+         mvprintw(43,60,  "  ==================================");
+         mvprintw(44,60,  "                                    ");
+         init_pair(164, COLOR_MAGENTA, COLOR_BLACK);
+         attron(COLOR_PAIR(164));
          mvprintw(41,96,  "⣴⣷⣷⣿⣷⣄");
          mvprintw(42,96,  "⣿⣿⣿⣿⣿⡯⣄");
          mvprintw(43,96,  "⣿⣿⣿⣿⣿⣷⠟");
          mvprintw(44,96,  "⠙⣿⠟⢷⠟");
-         attroff(COLOR_PAIR(16));
+         attroff(COLOR_PAIR(164));
         }
         else if(picked_gun==4){ 
          mvprintw(42,60,  "  \\\\\\\\\\\\\\\\_____________________\\`-._");
@@ -2054,7 +2243,7 @@ int end() {
         if(ends){end();}
         if(endisnear==2){end();}
         if(endisnear==1&&themed[l][cy][cx]==6){
-        mvprintw(40,43,"KILL ALL MONSTERS TO WIN!");
+        mvprintw(40,63,"KILL ALL MONSTERS TO WIN!");
         for(int i=0;i<50;i++){
             for(int j=0;j<150;j++){
                 if(map[l][cy][cx]=='='){map[l][cy][cx]='+';}
@@ -2071,7 +2260,7 @@ int end() {
                 {
                     if (themed[l][i][j] == 4)
                     {
-                        init_pair(108,108,COLOR_BLACK);
+                        init_pair(108,8,COLOR_BLACK);
                         attron(COLOR_PAIR(108));
                         mvprintw(i, j, "|");
                         attroff(COLOR_PAIR(108));
@@ -2129,18 +2318,18 @@ int end() {
         {
             display_health_bar();
             sickness = 1;
-            init_pair(16, COLOR_MAGENTA, COLOR_WHITE);
+            init_pair(16, COLOR_MAGENTA, COLOR_BLACK);
             attron(COLOR_PAIR(16));
             poison_m++;
         }
         else if (themed[l][cy][cx] == 2 && mapp_theme == 1)
         {
-            init_pair(203, 202, COLOR_WHITE);
+            init_pair(203, 202, COLOR_BLACK);
             attron(COLOR_PAIR(203));
         }
         else if (themed[l][cy][cx] == 3 && mapp_theme == 1)
         {
-            init_pair(49, 48, COLOR_WHITE);
+            init_pair(49, 48, COLOR_BLACK);
             attron(COLOR_PAIR(49));
             display_health_bar();
             healness = 1;
@@ -2159,7 +2348,7 @@ int end() {
         }
         else if (themed[l][cy][cx] == 5 && mapp_theme == 1)
         {
-            init_pair(89, 88, COLOR_WHITE);
+            init_pair(89, 88, COLOR_BLACK);
             attron(COLOR_PAIR(89));
         }
         else if (themed[l][cy][cx] == 5)
@@ -2169,7 +2358,7 @@ int end() {
         }
         else if (themed[l][cy][cx] == 6 && mapp_theme == 1)
         {
-            init_pair(221, 220, COLOR_WHITE);
+            init_pair(221, 220, COLOR_BLACK);
             attron(COLOR_PAIR(220));
         }
         else if (themed[l][cy][cx] == 6)
@@ -2179,7 +2368,7 @@ int end() {
         }
         else if (themed[l][cy][cx] == 4 && mapp_theme == 1)
         {
-            init_pair(247, 246, COLOR_WHITE);
+            init_pair(247, 246, COLOR_BLACK);
             attron(COLOR_PAIR(247));
         }
         else if (themed[l][cy][cx] == 4)
@@ -3297,6 +3486,50 @@ int end() {
                 }
             }
             }
+            break;
+        case 'c':
+        case 'C':
+            if(clashed==1){
+                int tempdone=0;
+                for(int i=10;i<30;i++){
+                    for(int j=35;j<135;j++){
+                        if(map[5][i][j]=='U'||map[5][i][j]=='D'||map[5][i][j]=='F'||map[5][i][j]=='G'||map[5][i][j]=='S'||map[5][i][j]=='B'){
+                            tempdone=1;                            
+                        }
+                    }
+                    if(tempdone){break;}
+                }
+                refresh();
+                if(!tempdone){
+                clashed=0;
+                 levels[l] = 1;
+                    l=beforel;
+                    cy=beforecy;
+                    cx=beforecx;
+                    map[l][cy][cx]='.';
+                    levels[l] = 1;
+                    for (int i = 0; i < 50; i++)
+                            k = 0;
+                            secret = 0;
+                            m = 0;
+                            forbidden = 0;
+                            placed = 0, done = 0;
+                            error = 0;
+                            unlocked = 0;                          
+                            save_game_state(user, map, revealed, revealed_path, centers, health_bar, food_stack, hunger_bar, cx, cy, l, levels);
+                            play_game(levels[l]);
+            }}
+            // else if(map[l][cy][cx]=='^'){
+                else{
+                if(map[l][cy][cx]=='^'){
+                beforel=l;
+                beforecx=cx;
+                beforecy=cy;
+            save_game_state(user, map, revealed, revealed_path, centers, health_bar, food_stack, hunger_bar, cx, cy, l, levels);
+            clear();
+            refresh();
+            display_clash_room();}}
+            // display_clash_room();}}
             break;
         case KEY_END:
             repeat;
@@ -5251,30 +5484,38 @@ int end() {
                     direction=getch();
                 case 'a':
                 case 'A':  
+                    init_pair(108,8,COLOR_BLACK);
+                    init_pair(16,COLOR_MAGENTA,COLOR_BLACK);
+                    init_pair(220,220,COLOR_BLACK);
                     if(picked_gun==0){mvprintw(0,0,"YOU DO NOT PICKED ANY GUN"                      );break;}
                     else if(picked_gun>1&&picked_gun<5){
                         if(gun_stack[picked_gun-1]/10==0){mvprintw(0,0,"YOU RAN OF ARROW FOR THIS WEAPEN                          ");break;}
                     
                     if(direction==KEY_UP&&picked_gun==2){
+                        attron(COLOR_PAIR(220));
                         arrowy=cy;
-                        while (map[l][arrowy-1][cx] != '_' &&map[l][arrowy-1][cx] != '|' && map[l][arrowy-1][cx] != '='  && map[l][arrowy-1][cx] != '*'&&map[l][arrowy-1][cx] != '0'&&map[l][arrowy-1][cx] != 'O'&&dagger_limit<5&&map[l][arrowy][cx]!='D'&&map[l][arrowy][cx]!='G'&&map[l][arrowy][cx]!='F'&&map[l][arrowy][cx]!='U'&&map[l][arrowy][cx]!='S')
-                        {arrowy--;dagger_limit++;}if(gun_stack[1]>10){gun_stack[1]-=10;}else{}if(map[l][arrowy][cx]=='D'||map[l][arrowy][cx]=='F'||map[l][arrowy][cx]=='G'||map[l][arrowy][cx]=='S'||map[l][arrowy][cx]=='U'){if(damage_boost){mvprintw(0,24,"+ 12         "); repeat=2;}else{ repeat=1;}
+                        while (map[l][arrowy-1][cx] != '_' &&map[l][arrowy-1][cx] != '|' && map[l][arrowy-1][cx] != '='  && map[l][arrowy-1][cx] != '*'&&map[l][arrowy-1][cx] != '0'&&map[l][arrowy-1][cx] != 'O'&&dagger_limit<5&&map[l][arrowy][cx]!='D'&&map[l][arrowy][cx]!='G'&&map[l][arrowy][cx]!='F'&&map[l][arrowy][cx]!='U'&&map[l][arrowy][cx]!='S'&&map[l][arrowy][cx]!='B'&&map[l][arrowy][cx]!='$')
+                        {arrowy--;refresh();napms(20);mvprintw(arrowy,cx,"^");if(arrowy+1!=cy){mvprintw(arrowy+1,cx,".");}; dagger_limit++;}if(gun_stack[1]>10){gun_stack[1]-=10;}else{}if(map[l][arrowy][cx]=='D'||map[l][arrowy][cx]=='F'||map[l][arrowy][cx]=='G'||map[l][arrowy][cx]=='S'||map[l][arrowy][cx]=='U'||map[l][arrowy][cx]=='B'||map[l][arrowy][cx]=='$'){if(damage_boost){mvprintw(0,24,"+ 12         "); repeat=2;}else{ repeat=1;}
                             for(int rr=repeat;rr>0;rr--){
-                            enemy_health[l][arrowy][cx] -= 12;};mvprintw(0,0,"NAILED IT! ->12 DAMAGE                 ");dagger_limit=0;check_dead(arrowy,cx);break;}else{dagger_limit=0;map[l][arrowy][cx]='d';break;}
-                    }
+                            enemy_health[l][arrowy][cx] -= 12;if(map[l][arrowy][cx]=='$'){damage_to_boss+=12;}};mvprintw(0,0,"NAILED IT! ->12 DAMAGE                 ");dagger_limit=0;check_dead(arrowy,cx);break;}else{dagger_limit=0;map[l][arrowy][cx]='d';break;}
+                    attroff(COLOR_PAIR(220));}
                     else if (direction == KEY_LEFT && picked_gun == 2) {
+                        attron(COLOR_PAIR(220));
                         arrowx = cx;
-                        while (map[l][cy][arrowx-1] != '_' && map[l][cy][arrowx-1] != '|' && map[l][cy][arrowx-1] != '=' && map[l][cy][arrowx-1] != '*' && map[l][cy][arrowx-1] != '0' && map[l][cy][arrowx-1] != 'O' && dagger_limit < 5 && map[l][cy][arrowx] != 'D' && map[l][cy][arrowx] != 'G' && map[l][cy][arrowx] != 'F' && map[l][cy][arrowx] != 'U' && map[l][cy][arrowx] != 'S') {
-                            arrowx--; 
+                        while (map[l][cy][arrowx-1] != '_' && map[l][cy][arrowx-1] != '|' && map[l][cy][arrowx-1] != '=' && map[l][cy][arrowx-1] != '*' && map[l][cy][arrowx-1] != '0' && map[l][cy][arrowx-1] != 'O' && dagger_limit < 5 && map[l][cy][arrowx] != 'D' && map[l][cy][arrowx] != 'G' && map[l][cy][arrowx] != 'F' && map[l][cy][arrowx] != 'U' && map[l][cy][arrowx] != 'S'&&map[l][cy][arrowx]!='B'&&map[l][cy][arrowx]!='$') {
+                            arrowx--;
+                            refresh();napms(20);
+                            mvprintw(cy,arrowx,"<");if(arrowx+1!=cx){mvprintw(cy,arrowx+1,".");}
                             dagger_limit++;
                         }
                         if (gun_stack[1] > 10) { 
                             gun_stack[1] -= 10; 
                         }
-                        if (map[l][cy][arrowx] == 'D' || map[l][cy][arrowx] == 'F' || map[l][cy][arrowx] == 'G' || map[l][cy][arrowx] == 'S' || map[l][cy][arrowx] == 'U') {
+                        if (map[l][cy][arrowx] == 'D' || map[l][cy][arrowx] == 'F' || map[l][cy][arrowx] == 'G' || map[l][cy][arrowx] == 'S' || map[l][cy][arrowx] == 'U'||map[l][cy][arrowx]=='B'||map[l][cy][arrowx]=='$') {
                             if(damage_boost){mvprintw(0,24,"+ 12         "); repeat=2;}else{ repeat=1;}
                             for(int rr=repeat;rr>0;rr--){
-                            enemy_health[l][cy][arrowx] -= 12;}
+                            enemy_health[l][cy][arrowx] -= 12;
+                            if( map[l][cy][arrowx]=='$'){damage_to_boss+=12;}}
                             mvprintw(0, 0, "NAILED IT! ->12 DAMAGE                                     ");
                             dagger_limit = 0;
                             check_dead(cy, arrowx);
@@ -5282,20 +5523,24 @@ int end() {
                             dagger_limit = 0;
                             map[l][cy][arrowx] = 'd';
                         }
+                        attroff(COLOR_PAIR(220));
                     }
                     if (direction == KEY_RIGHT && picked_gun == 2) {
+                        attron(COLOR_PAIR(220));
                         arrowx = cx;
-                        while (map[l][cy][arrowx+1] != '_' && map[l][cy][arrowx+1] != '|' && map[l][cy][arrowx+1] != '=' && map[l][cy][arrowx+1] != '*' && map[l][cy][arrowx+1] != '0' && map[l][cy][arrowx+1] != 'O' && dagger_limit < 5 && map[l][cy][arrowx] != 'D' && map[l][cy][arrowx] != 'G' && map[l][cy][arrowx] != 'F' && map[l][cy][arrowx] != 'U' && map[l][cy][arrowx] != 'S') {
+                        while (map[l][cy][arrowx+1] != '_' && map[l][cy][arrowx+1] != '|' && map[l][cy][arrowx+1] != '=' && map[l][cy][arrowx+1] != '*' && map[l][cy][arrowx+1] != '0' && map[l][cy][arrowx+1] != 'O' && dagger_limit < 5 && map[l][cy][arrowx] != 'D' && map[l][cy][arrowx] != 'G' && map[l][cy][arrowx] != 'F' && map[l][cy][arrowx] != 'U' && map[l][cy][arrowx] != 'S'&&map[l][cy][arrowx]!='B'&&map[l][cy][arrowx]!='$') {
                             arrowx++;
+                            refresh();napms(20);
+                            mvprintw(cy,arrowx,">");if(arrowx-1!=cx){mvprintw(cy,arrowx-1,".");}
                             dagger_limit++;
                         }
                         if (gun_stack[1] > 10) {
                             gun_stack[1] -= 10;
                         }
-                        if (map[l][cy][arrowx] == 'D' || map[l][cy][arrowx] == 'F' || map[l][cy][arrowx] == 'G' || map[l][cy][arrowx] == 'S' || map[l][cy][arrowx] == 'U') {
+                        if (map[l][cy][arrowx] == 'D' || map[l][cy][arrowx] == 'F' || map[l][cy][arrowx] == 'G' || map[l][cy][arrowx] == 'S' || map[l][cy][arrowx] == 'U'||map[l][cy][arrowx]=='B'||map[l][cy][arrowx]=='$') {
                             if(damage_boost){mvprintw(0,24,"+ 12         "); repeat=2;}else{ repeat=1;}
                             for(int rr=repeat;rr>0;rr--){
-                            enemy_health[l][cy][arrowx] -= 12;}
+                            enemy_health[l][cy][arrowx] -= 12; if( map[l][cy][arrowx]=='$'){damage_to_boss+=12;}}
                             mvprintw(0, 0, "NAILED IT! ->12 DAMAGE                                     ");
                             dagger_limit = 0;
                             check_dead(cy, arrowx);
@@ -5303,20 +5548,25 @@ int end() {
                             dagger_limit = 0;
                             map[l][cy][arrowx] = 'd';
                         }
+                        attroff(COLOR_PAIR(220));
                     }
                     if (direction == KEY_DOWN && picked_gun == 2) {
+                        attron(COLOR_PAIR(220));
                         arrowy = cy;
-                        while (map[l][arrowy+1][cx] != '_' && map[l][arrowy+1][cx] != '|' && map[l][arrowy+1][cx] != '=' && map[l][arrowy+1][cx] != '*' && map[l][arrowy+1][cx] != '0' && map[l][arrowy+1][cx] != 'O' && dagger_limit < 5 && map[l][arrowy][cx] != 'D' && map[l][arrowy][cx] != 'G' && map[l][arrowy][cx] != 'F' && map[l][arrowy][cx] != 'U' && map[l][arrowy][cx] != 'S') {
+                        while (map[l][arrowy+1][cx] != '_' && map[l][arrowy+1][cx] != '|' && map[l][arrowy+1][cx] != '=' && map[l][arrowy+1][cx] != '*' && map[l][arrowy+1][cx] != '0' && map[l][arrowy+1][cx] != 'O' && dagger_limit < 5 && map[l][arrowy][cx] != 'D' && map[l][arrowy][cx] != 'G' && map[l][arrowy][cx] != 'F' && map[l][arrowy][cx] != 'U' && map[l][arrowy][cx] != 'S'&&map[l][arrowy][cx]!='B'&&map[l][arrowy][cx]!='$') {
                             arrowy++;
+                            refresh();napms(20);
+                            mvprintw(arrowy,cx,"v");if(arrowy-1!=cy){mvprintw(arrowy-1,cx,".");}
                             dagger_limit++;
                         }
                         if (gun_stack[1] > 10) {
                             gun_stack[1] -= 10;
                         }
-                        if (map[l][arrowy][cx] == 'D' || map[l][arrowy][cx] == 'F' || map[l][arrowy][cx] == 'G' || map[l][arrowy][cx] == 'S' || map[l][arrowy][cx] == 'U') {
+                        if (map[l][arrowy][cx] == 'D' || map[l][arrowy][cx] == 'F' || map[l][arrowy][cx] == 'G' || map[l][arrowy][cx] == 'S' || map[l][arrowy][cx] == 'U'|| map[l][arrowy][cx]=='$') {
                             if(damage_boost){mvprintw(0,24,"+ 12         "); repeat=2;}else{ repeat=1;}
                             for(int rr=repeat;rr>0;rr--){
-                            enemy_health[l][arrowy][cx] -= 12;}
+                            enemy_health[l][arrowy][cx] -= 12;
+                            if( map[l][arrowy][cx]=='$'){damage_to_boss+=12;}}
                             mvprintw(0, 0, "NAILED IT! ->12 DAMAGE                                     ");
                             dagger_limit = 0;
                             check_dead(arrowy, cx);
@@ -5324,30 +5574,34 @@ int end() {
                             dagger_limit = 0;
                             map[l][arrowy][cx] = 'd';
                         }
+                        attroff(COLOR_PAIR(220));
                     }
 
 
 
                     else if(direction==KEY_UP&&picked_gun==3){
+                        attron(COLOR_PAIR(16));
                         arrowy=cy;
-                        while (map[l][arrowy-1][cx] != '_' &&map[l][arrowy-1][cx] != '|' && map[l][arrowy-1][cx] != '='  && map[l][arrowy-1][cx] != '*'&&map[l][arrowy-1][cx] != '0'&&map[l][arrowy-1][cx] != 'O'&&wound_limit<10&&map[l][arrowy][cx]!='D'&&map[l][arrowy][cx]!='G'&&map[l][arrowy][cx]!='F'&&map[l][arrowy][cx]!='U'&&map[l][arrowy][cx]!='S')
-                        {arrowy--;wound_limit++;}if(gun_stack[2]>10){gun_stack[2]-=10;}else{}if(map[l][arrowy][cx]=='D'||map[l][arrowy][cx]=='F'||map[l][arrowy][cx]=='G'||map[l][arrowy][cx]=='S'||map[l][arrowy][cx]=='U'){if(damage_boost){mvprintw(0,24,"+ 15         "); repeat=2;}else{ repeat=1;}
+                        while (map[l][arrowy-1][cx] != '_' &&map[l][arrowy-1][cx] != '|' && map[l][arrowy-1][cx] != '='  && map[l][arrowy-1][cx] != '*'&&map[l][arrowy-1][cx] != '0'&&map[l][arrowy-1][cx] != 'O'&&wound_limit<10&&map[l][arrowy][cx]!='D'&&map[l][arrowy][cx]!='G'&&map[l][arrowy][cx]!='F'&&map[l][arrowy][cx]!='U'&&map[l][arrowy][cx]!='S'&&map[l][arrowy][cx]!='B'&&map[l][arrowy][cx]!='$')
+                        {arrowy--;refresh();napms(10);mvprintw(arrowy,cx,"^");if(arrowy+1!=cy){mvprintw(arrowy+1,cx,".");};wound_limit++;}if(gun_stack[2]>10){gun_stack[2]-=10;}else{}if(map[l][arrowy][cx]=='D'||map[l][arrowy][cx]=='F'||map[l][arrowy][cx]=='G'||map[l][arrowy][cx]=='S'||map[l][arrowy][cx]=='U'||map[l][arrowy][cx]=='B'||map[l][arrowy][cx]=='$'){if(damage_boost){mvprintw(0,24,"+ 15         "); repeat=2;}else{ repeat=1;}
                             for(int rr=repeat;rr>0;rr--){
-                            enemy_health[l][arrowy][cx] -= 15;};movable[l][arrowy][cx]=-1;mvprintw(0,0,"NAILED IT! ->15 DAMAGE                                     ");wound_limit=0;check_dead(arrowy,cx);break;}else{wound_limit=0;map[l][arrowy][cx]='w';break;}
-                    }
+                            enemy_health[l][arrowy][cx] -= 15;if( map[l][arrowy][cx]=='$'){damage_to_boss+=5;}};movable[l][arrowy][cx]=-1;mvprintw(0,0,"NAILED IT! ->15 DAMAGE                                     ");wound_limit=0;check_dead(arrowy,cx);break;}else{wound_limit=0;map[l][arrowy][cx]='w';break;}
+                    attroff(COLOR_PAIR(16));}
                     else if (direction == KEY_LEFT && picked_gun == 3) {
+                        attron(COLOR_PAIR(16));
                         arrowx = cx;
-                        while (map[l][cy][arrowx-1] != '_' && map[l][cy][arrowx-1] != '|' && map[l][cy][arrowx-1] != '=' && map[l][cy][arrowx-1] != '*' && map[l][cy][arrowx-1] != '0' && map[l][cy][arrowx-1] != 'O' && wound_limit < 10 && map[l][cy][arrowx] != 'D' && map[l][cy][arrowx] != 'G' && map[l][cy][arrowx] != 'F' && map[l][cy][arrowx] != 'U' && map[l][cy][arrowx] != 'S') {
-                            arrowx--; 
+                        while (map[l][cy][arrowx-1] != '_' && map[l][cy][arrowx-1] != '|' && map[l][cy][arrowx-1] != '=' && map[l][cy][arrowx-1] != '*' && map[l][cy][arrowx-1] != '0' && map[l][cy][arrowx-1] != 'O' && wound_limit < 10 && map[l][cy][arrowx] != 'D' && map[l][cy][arrowx] != 'G' && map[l][cy][arrowx] != 'F' && map[l][cy][arrowx] != 'U' && map[l][cy][arrowx] != 'S'&&map[l][cy][arrowx]!='B'&&map[l][cy][arrowx]!='$') {
+                        arrowx--; refresh();napms(10);mvprintw(cy,arrowx,"<");if(arrowx+1!=cx){mvprintw(cy,arrowx+1,".");}
+                            
                             wound_limit++;
                         }
                         if (gun_stack[2] > 10) { 
                             gun_stack[2] -= 10; 
                         }
-                        if (map[l][cy][arrowx] == 'D' || map[l][cy][arrowx] == 'F' || map[l][cy][arrowx] == 'G' || map[l][cy][arrowx] == 'S' || map[l][cy][arrowx] == 'U') {
+                        if (map[l][cy][arrowx] == 'D' || map[l][cy][arrowx] == 'F' || map[l][cy][arrowx] == 'G' || map[l][cy][arrowx] == 'S' || map[l][cy][arrowx] == 'U'||map[l][cy][arrowx]=='B'||map[l][cy][arrowx]=='$') {
                             if(damage_boost){mvprintw(0,24,"+ 15             "); repeat=2;}else{ repeat=1;}
                             for(int rr=repeat;rr>0;rr--){
-                            enemy_health[l][cy][arrowx] -= 15;}
+                            enemy_health[l][cy][arrowx] -= 15; if( map[l][cy][arrowx]=='$'){damage_to_boss+=5;}}
                             movable[l][cy][arrowx]=-1;
                             mvprintw(0, 0, "NAILED IT! ->15 DAMAGE                                     ");
                             wound_limit = 0;
@@ -5355,21 +5609,23 @@ int end() {
                         } else {
                             wound_limit = 0;
                             map[l][cy][arrowx] = 'w';
-                        }
+                        }attroff(COLOR_PAIR(16));
                     }
                     else if (direction == KEY_RIGHT && picked_gun == 3) {
+                        attron(COLOR_PAIR(16));
                         arrowx = cx;
-                        while (map[l][cy][arrowx+1] != '_' && map[l][cy][arrowx+1] != '|' && map[l][cy][arrowx+1] != '=' && map[l][cy][arrowx+1] != '*' && map[l][cy][arrowx+1] != '0' && map[l][cy][arrowx+1] != 'O' && wound_limit < 10 && map[l][cy][arrowx] != 'D' && map[l][cy][arrowx] != 'G' && map[l][cy][arrowx] != 'F' && map[l][cy][arrowx] != 'U' && map[l][cy][arrowx] != 'S') {
+                        while (map[l][cy][arrowx+1] != '_' && map[l][cy][arrowx+1] != '|' && map[l][cy][arrowx+1] != '=' && map[l][cy][arrowx+1] != '*' && map[l][cy][arrowx+1] != '0' && map[l][cy][arrowx+1] != 'O' && wound_limit < 10 && map[l][cy][arrowx] != 'D' && map[l][cy][arrowx] != 'G' && map[l][cy][arrowx] != 'F' && map[l][cy][arrowx] != 'U' && map[l][cy][arrowx] != 'S'&&map[l][cy][arrowx]!='B'&&map[l][cy][arrowx]!='$') {
                             arrowx++;
+                            refresh();napms(10);mvprintw(cy,arrowx,">");if(arrowx-1!=cx){mvprintw(cy,arrowx-1,".");}
                             wound_limit++;
                         }
                         if (gun_stack[2] > 10) {
                             gun_stack[2] -= 10;
                         }
-                        if (map[l][cy][arrowx] == 'D' || map[l][cy][arrowx] == 'F' || map[l][cy][arrowx] == 'G' || map[l][cy][arrowx] == 'S' || map[l][cy][arrowx] == 'U') {
+                        if (map[l][cy][arrowx] == 'D' || map[l][cy][arrowx] == 'F' || map[l][cy][arrowx] == 'G' || map[l][cy][arrowx] == 'S' || map[l][cy][arrowx] == 'U'||map[l][cy][arrowx]=='B'||map[l][cy][arrowx]=='$') {
                             if(damage_boost){mvprintw(0,24,"+ 15         "); repeat=2;}else{ repeat=1;}
                             for(int rr=repeat;rr>0;rr--){
-                            enemy_health[l][cy][arrowx] -= 15;}
+                            enemy_health[l][cy][arrowx] -= 15; if( map[l][cy][arrowx]=='$'){damage_to_boss+=5;}}
                             movable[l][cy][arrowx]=-1;
                             mvprintw(0, 0, "NAILED IT! ->15 DAMAGE                                     ");
                             wound_limit = 0;
@@ -5378,20 +5634,23 @@ int end() {
                             wound_limit = 0;
                             map[l][cy][arrowx] = 'w';
                         }
+                        attroff(COLOR_PAIR(16));
                     }
                     else if (direction == KEY_DOWN && picked_gun == 3) {
+                        attron(COLOR_PAIR(16));
                         arrowy = cy;
-                        while (map[l][arrowy+1][cx] != '_' && map[l][arrowy+1][cx] != '|' && map[l][arrowy+1][cx] != '=' && map[l][arrowy+1][cx] != '*' && map[l][arrowy+1][cx] != '0' && map[l][arrowy+1][cx] != 'O' && wound_limit < 10 && map[l][arrowy][cx] != 'D' && map[l][arrowy][cx] != 'G' && map[l][arrowy][cx] != 'F' && map[l][arrowy][cx] != 'U' && map[l][arrowy][cx] != 'S') {
+                        while (map[l][arrowy+1][cx] != '_' && map[l][arrowy+1][cx] != '|' && map[l][arrowy+1][cx] != '=' && map[l][arrowy+1][cx] != '*' && map[l][arrowy+1][cx] != '0' && map[l][arrowy+1][cx] != 'O' && wound_limit < 10 && map[l][arrowy][cx] != 'D' && map[l][arrowy][cx] != 'G' && map[l][arrowy][cx] != 'F' && map[l][arrowy][cx] != 'U' && map[l][arrowy][cx] != 'S'&&map[l][arrowy][cx]!='B'&&map[l][arrowy][cx]!='$') {
                             arrowy++;
+                            refresh();napms(10);mvprintw(arrowy,cx,"v");if(arrowy-1!=cy){mvprintw(arrowy-1,cx,".");}
                             wound_limit++;
                         }
                         if (gun_stack[2] > 10) {
                             gun_stack[2] -= 10;
                         }
-                        if (map[l][arrowy][cx] == 'D' || map[l][arrowy][cx] == 'F' || map[l][arrowy][cx] == 'G' || map[l][arrowy][cx] == 'S' || map[l][arrowy][cx] == 'U') {
+                        if (map[l][arrowy][cx] == 'D' || map[l][arrowy][cx] == 'F' || map[l][arrowy][cx] == 'G' || map[l][arrowy][cx] == 'S' || map[l][arrowy][cx] == 'U'||map[l][arrowy][cx]=='B'||map[l][arrowy][cx]=='$') {
                             if(damage_boost){mvprintw(0,24,"+ 15         "); repeat=2;}else{ repeat=1;}
                             for(int rr=repeat;rr>0;rr--){
-                            enemy_health[l][arrowy][cx] -= 15;}
+                            enemy_health[l][arrowy][cx] -= 15;if( map[l][arrowy][cx]=='$'){damage_to_boss+=5;}}
                             movable[l][arrowy][cx]=-1;
                             mvprintw(0, 0, "NAILED IT! ->15 DAMAGE                                     ");
                             wound_limit = 0;
@@ -5402,25 +5661,29 @@ int end() {
                         }
                     }
                     else if(direction==KEY_UP&&picked_gun==4){
+                        attron(COLOR_PAIR(108));
                         arrowy=cy;
-                        while (map[l][arrowy-1][cx] != '_' &&map[l][arrowy-1][cx] != '|' && map[l][arrowy-1][cx] != '='  && map[l][arrowy-1][cx] != '*'&&map[l][arrowy-1][cx] != '0'&&map[l][arrowy-1][cx] != 'O'&&arrow_limit<5&&map[l][arrowy][cx]!='D'&&map[l][arrowy][cx]!='G'&&map[l][arrowy][cx]!='F'&&map[l][arrowy][cx]!='U'&&map[l][arrowy][cx]!='S')
-                        {arrowy--;arrow_limit++;}if(gun_stack[3]>10){gun_stack[3]-=10;}else{}if(map[l][arrowy][cx]=='D'||map[l][arrowy][cx]=='F'||map[l][arrowy][cx]=='G'||map[l][arrowy][cx]=='S'||map[l][arrowy][cx]=='U'){if(damage_boost){mvprintw(0,24,"+ 5         "); repeat=2;}else{ repeat=1;}
+                        while (map[l][arrowy-1][cx] != '_' &&map[l][arrowy-1][cx] != '|' && map[l][arrowy-1][cx] != '='  && map[l][arrowy-1][cx] != '*'&&map[l][arrowy-1][cx] != '0'&&map[l][arrowy-1][cx] != 'O'&&arrow_limit<5&&map[l][arrowy][cx]!='D'&&map[l][arrowy][cx]!='G'&&map[l][arrowy][cx]!='F'&&map[l][arrowy][cx]!='U'&&map[l][arrowy][cx]!='S'&&map[l][arrowy][cx]!='B'&&map[l][arrowy][cx]!='$')
+                        {arrowy--;refresh();napms(20);mvprintw(arrowy,cx,"^");if(arrowy+1!=cy){mvprintw(arrowy+1,cx,".");};arrow_limit++;}if(gun_stack[3]>10){gun_stack[3]-=10;}else{}if(map[l][arrowy][cx]=='D'||map[l][arrowy][cx]=='F'||map[l][arrowy][cx]=='G'||map[l][arrowy][cx]=='S'||map[l][arrowy][cx]=='U'||map[l][arrowy][cx]=='B'||map[l][arrowy][cx]=='$'){if(damage_boost){mvprintw(0,24,"+ 5         "); repeat=2;}else{ repeat=1;}
                             for(int rr=repeat;rr>0;rr--){
-                            enemy_health[l][arrowy][cx] -= 5;};mvprintw(0,0,"NAILED IT! ->5 DAMAGE                                     ");arrow_limit=0;check_dead(arrowy,cx);break;}else{arrow_limit=0;map[l][arrowy][cx]='a';break;}
+                            enemy_health[l][arrowy][cx] -= 5;if( map[l][arrowy][cx]=='$'){damage_to_boss+=5;}};mvprintw(0,0,"NAILED IT! ->5 DAMAGE                                     ");arrow_limit=0;check_dead(arrowy,cx);break;}else{arrow_limit=0;map[l][arrowy][cx]='a';break;}
+                    attroff(COLOR_PAIR(108));
                     }
                     else if (direction == KEY_LEFT && picked_gun == 4) {
+                        attron(COLOR_PAIR(108));
                         arrowx = cx;
-                        while (map[l][cy][arrowx-1] != '_' && map[l][cy][arrowx-1] != '|' && map[l][cy][arrowx-1] != '=' && map[l][cy][arrowx-1] != '*' && map[l][cy][arrowx-1] != '0' && map[l][cy][arrowx-1] != 'O' && arrow_limit < 5 && map[l][cy][arrowx] != 'D' && map[l][cy][arrowx] != 'G' && map[l][cy][arrowx] != 'F' && map[l][cy][arrowx] != 'U' && map[l][cy][arrowx] != 'S') {
+                        while (map[l][cy][arrowx-1] != '_' && map[l][cy][arrowx-1] != '|' && map[l][cy][arrowx-1] != '=' && map[l][cy][arrowx-1] != '*' && map[l][cy][arrowx-1] != '0' && map[l][cy][arrowx-1] != 'O' && arrow_limit < 5 && map[l][cy][arrowx] != 'D' && map[l][cy][arrowx] != 'G' && map[l][cy][arrowx] != 'F' && map[l][cy][arrowx] != 'U' && map[l][cy][arrowx] != 'S'&&map[l][cy][arrowx]!='B'&&map[l][cy][arrowx]!='$') {
                             arrowx--; 
+                            refresh();napms(20);mvprintw(cy,arrowx,"<");if(arrowx+1!=cx){mvprintw(cy,arrowx+1,".");}
                             arrow_limit++;
                         }
                         if (gun_stack[3] > 10) { 
                             gun_stack[3] -= 10; 
                         }
-                        if (map[l][cy][arrowx] == 'D' || map[l][cy][arrowx] == 'F' || map[l][cy][arrowx] == 'G' || map[l][cy][arrowx] == 'S' || map[l][cy][arrowx] == 'U') {
+                        if (map[l][cy][arrowx] == 'D' || map[l][cy][arrowx] == 'F' || map[l][cy][arrowx] == 'G' || map[l][cy][arrowx] == 'S' || map[l][cy][arrowx] == 'U'||map[l][cy][arrowx]=='B'||map[l][cy][arrowx]=='$') {
                             if(damage_boost){mvprintw(0,24,"+ 5         "); repeat=2;}else{ repeat=1;}
                             for(int rr=repeat;rr>0;rr--){
-                            enemy_health[l][cy][arrowx] -= 5;}
+                            enemy_health[l][cy][arrowx] -= 5; if( map[l][cy][arrowx]=='$'){damage_to_boss+=5;}}
                             mvprintw(0, 0, "NAILED IT! ->5 DAMAGE                                     ");
                             arrow_limit = 0;
                             check_dead(cy, arrowx);
@@ -5428,20 +5691,22 @@ int end() {
                             arrow_limit = 0;
                             map[l][cy][arrowx] = 'a';
                         }
+                        attroff(COLOR_PAIR(108));
                     }
                     else if (direction == KEY_RIGHT && picked_gun == 4) {
+                        attron(COLOR_PAIR(108));
                         arrowx = cx;
-                        while (map[l][cy][arrowx+1] != '_' && map[l][cy][arrowx+1] != '|' && map[l][cy][arrowx+1] != '=' && map[l][cy][arrowx+1] != '*' && map[l][cy][arrowx+1] != '0' && map[l][cy][arrowx+1] != 'O' && arrow_limit < 5 && map[l][cy][arrowx] != 'D' && map[l][cy][arrowx] != 'G' && map[l][cy][arrowx] != 'F' && map[l][cy][arrowx] != 'U' && map[l][cy][arrowx] != 'S') {
-                            arrowx++;
+                        while (map[l][cy][arrowx+1] != '_' && map[l][cy][arrowx+1] != '|' && map[l][cy][arrowx+1] != '=' && map[l][cy][arrowx+1] != '*' && map[l][cy][arrowx+1] != '0' && map[l][cy][arrowx+1] != 'O' && arrow_limit < 5 && map[l][cy][arrowx] != 'D' && map[l][cy][arrowx] != 'G' && map[l][cy][arrowx] != 'F' && map[l][cy][arrowx] != 'U' && map[l][cy][arrowx] != 'S'&&map[l][cy][arrowx]!='B'&&map[l][cy][arrowx]!='$') {
+                            arrowx++;refresh();napms(20);mvprintw(cy,arrowx,">");if(arrowx-1!=cx){mvprintw(cy,arrowx-1,".");}
                             arrow_limit++;
                         }
                         if (gun_stack[3] > 10) {
                             gun_stack[3] -= 10;
                         }
-                        if (map[l][cy][arrowx] == 'D' || map[l][cy][arrowx] == 'F' || map[l][cy][arrowx] == 'G' || map[l][cy][arrowx] == 'S' || map[l][cy][arrowx] == 'U') {
+                        if (map[l][cy][arrowx] == 'D' || map[l][cy][arrowx] == 'F' || map[l][cy][arrowx] == 'G' || map[l][cy][arrowx] == 'S' || map[l][cy][arrowx] == 'U'||map[l][cy][arrowx]=='B'||map[l][cy][arrowx]=='$') {
                             if(damage_boost){mvprintw(0,24,"+ 5         "); repeat=2;}else{ repeat=1;}
                             for(int rr=repeat;rr>0;rr--){
-                            enemy_health[l][cy][arrowx] -= 5;}
+                            enemy_health[l][cy][arrowx] -= 5; if( map[l][cy][arrowx]=='$'){damage_to_boss+=5;}}
                             mvprintw(0, 0, "NAILED IT! ->5 DAMAGE                                     ");
                             arrow_limit = 0;
                             check_dead(cy, arrowx);
@@ -5449,20 +5714,22 @@ int end() {
                             arrow_limit = 0;
                             map[l][cy][arrowx] = 'a';
                         }
+                        attroff(COLOR_PAIR(108));
                     }
                     else if (direction == KEY_DOWN && picked_gun == 4) {
+                        attron(COLOR_PAIR(108));
                         arrowy = cy;
-                        while (map[l][arrowy+1][cx] != '_' && map[l][arrowy+1][cx] != '|' && map[l][arrowy+1][cx] != '=' && map[l][arrowy+1][cx] != '*' && map[l][arrowy+1][cx] != '0' && map[l][arrowy+1][cx] != 'O' && arrow_limit < 5 && map[l][arrowy][cx] != 'D' && map[l][arrowy][cx] != 'G' && map[l][arrowy][cx] != 'F' && map[l][arrowy][cx] != 'U' && map[l][arrowy][cx] != 'S') {
-                            arrowy++;
+                        while (map[l][arrowy+1][cx] != '_' && map[l][arrowy+1][cx] != '|' && map[l][arrowy+1][cx] != '=' && map[l][arrowy+1][cx] != '*' && map[l][arrowy+1][cx] != '0' && map[l][arrowy+1][cx] != 'O' && arrow_limit < 5 && map[l][arrowy][cx] != 'D' && map[l][arrowy][cx] != 'G' && map[l][arrowy][cx] != 'F' && map[l][arrowy][cx] != 'U' && map[l][arrowy][cx] != 'S'&&map[l][arrowy][cx]!='B'&&map[l][arrowy][cx]!='$') {
+                            arrowy++;refresh();napms(20);mvprintw(arrowy,cx,"v");if(arrowy-1!=cy){mvprintw(arrowy-1,cx,".");}
                             arrow_limit++;
                         }
                         if (gun_stack[3] > 10) {
                             gun_stack[3] -= 10;
                         }
-                        if (map[l][arrowy][cx] == 'D' || map[l][arrowy][cx] == 'F' || map[l][arrowy][cx] == 'G' || map[l][arrowy][cx] == 'S' || map[l][arrowy][cx] == 'U') {
+                        if (map[l][arrowy][cx] == 'D' || map[l][arrowy][cx] == 'F' || map[l][arrowy][cx] == 'G' || map[l][arrowy][cx] == 'S' || map[l][arrowy][cx] == 'U'||map[l][arrowy][cx]=='B'||map[l][arrowy][cx]=='$') {
                             if(damage_boost){mvprintw(0,24,"+ 5         "); repeat=2;}else{ repeat=1;}
                             for(int rr=repeat;rr>0;rr--){
-                            enemy_health[l][arrowy][cx] -= 5;}
+                            enemy_health[l][arrowy][cx] -= 5;if(map[l][arrowy][cx]=='$'){damage_to_boss+=5;}}
                             mvprintw(0, 0, "NAILED IT! ->5 DAMAGE                                     ");
                             arrow_limit = 0;
                             check_dead(arrowy, cx);
@@ -5470,6 +5737,7 @@ int end() {
                             arrow_limit = 0;
                             map[l][arrowy][cx] = 'a';
                         }
+                        attron(COLOR_PAIR(108));
                     }
 
                     

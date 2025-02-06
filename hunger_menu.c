@@ -7,9 +7,9 @@ void display_hunger_menu(int n,int hunger_bar[60],int food_stack[5],int health_b
     initscr();
     keypad(stdscr, TRUE);
     start_color();
-    init_pair(11, COLOR_WHITE, COLOR_RED);
-    init_pair(12, COLOR_WHITE, COLOR_YELLOW);
-    init_pair(13, COLOR_WHITE, COLOR_GREEN);
+    init_pair(11, COLOR_BLACK, COLOR_RED);
+    init_pair(12, COLOR_BLACK, COLOR_YELLOW);
+    init_pair(13, COLOR_BLACK, COLOR_GREEN);
     init_pair(14,COLOR_RED,COLOR_BLACK);
     WINDOW *menu_win = newwin(20, 80, 10, 35);
     keypad(menu_win, TRUE);

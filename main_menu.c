@@ -9,6 +9,7 @@
 #include "theme_config.h"
 #include "main_game.h"
 #include "show_scoreboard.h"
+#include "show_profile.h"
 extern int current_fg_color;
 extern int current_bg_color;
 void select_button() {
@@ -29,7 +30,9 @@ void select_button() {
                 play_game(2);
                 break;
             } else if (y == 17 && x == 69) {
-                //mvprintw(25, 70, "You selected My profile");
+                clear();
+                display_profile();
+                break;
             } else if (y == 20 && x == 69) {
                 clear();
                 board(15);

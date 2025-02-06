@@ -7,17 +7,17 @@
 #include "theme_menu.h"
 #include "reveal_map.h"
 extern int l;
-void reveal_map(int map[5][200][200], int cy, int cx) {
+void reveal_map(int map[6][200][200], int cy, int cx) {
     init_pair(220,220,COLOR_BLACK);
     int tempx = cx;
     int tempy = cy;
 
     if (map[l][cy][cx] == '.'||map[l][cy][cx] == '<') {
-        init_pair(16, COLOR_MAGENTA, COLOR_WHITE);init_pair(15, COLOR_MAGENTA, COLOR_BLACK);
-        init_pair(203, 202, COLOR_WHITE);init_pair(202, 202, COLOR_BLACK);
-        init_pair(49, 48, COLOR_WHITE);init_pair(48,48, COLOR_BLACK);
-        init_pair(89, 88, COLOR_WHITE);init_pair(88,88, COLOR_BLACK);
-        init_pair(247, 246, COLOR_WHITE);init_pair(246,246, COLOR_BLACK);
+        init_pair(16, COLOR_MAGENTA, COLOR_BLACK);init_pair(15, COLOR_MAGENTA, COLOR_BLACK);
+        init_pair(203, 202, COLOR_BLACK);init_pair(202, 202, COLOR_BLACK);
+        init_pair(49, 48, COLOR_BLACK);init_pair(48,48, COLOR_BLACK);
+        init_pair(89, 88, COLOR_BLACK);init_pair(88,88, COLOR_BLACK);
+        init_pair(247, 246, COLOR_BLACK);init_pair(246,246, COLOR_BLACK);
         if(themed[l][cy][cx]==1&&mapp_theme==1){
             attron(COLOR_PAIR(16));
         }
@@ -585,6 +585,40 @@ void reveal_map(int map[5][200][200], int cy, int cx) {
                 map[l][i][j]='.';
                 attroff(COLOR_PAIR(220));
             }
+             else if(map[l][i][j+1]!='<'&&map[l][i][j+1]!='>'&&(themed[l][i][j]==5&&abs(i-cy)<3&&abs(j-cx)<3&&map[l][i][j]=='k'&&revealed[l][i][j]==1)||(themed[l][i][j]!=5&&map[l][i][j]=='k'&&revealed[l][i][j]==1)){
+                
+                attron(COLOR_PAIR(220));
+                mvprintw(i,j,"△");
+                j++;
+                map[l][i][j]='.';
+                attroff(COLOR_PAIR(220));
+            }
+             else if(map[l][i][j+1]!='<'&&map[l][i][j+1]!='>'&&(themed[l][i][j]==5&&abs(i-cy)<3&&abs(j-cx)<3&&map[l][i][j]=='k'&&revealed[l][i][j]==1)||(themed[l][i][j]!=5&&map[l][i][j]=='k'&&revealed[l][i][j]==1)){
+                
+                attron(COLOR_PAIR(220));
+                mvprintw(i,j,"△");
+                j++;
+                map[l][i][j]='.';
+                attroff(COLOR_PAIR(220));
+            }
+             else if(map[l][i][j+1]!='<'&&map[l][i][j+1]!='>'&&(themed[l][i][j]==5&&abs(i-cy)<3&&abs(j-cx)<3&&map[l][i][j]=='d'&&revealed[l][i][j]==1)||(themed[l][i][j]!=5&&map[l][i][j]=='d'&&revealed[l][i][j]==1)){
+                
+                attron(COLOR_PAIR(220));
+                mvprintw(i,j,"ӿ");
+                attroff(COLOR_PAIR(220));
+            }
+            else if(map[l][i][j+1]!='<'&&map[l][i][j+1]!='>'&&(themed[l][i][j]==5&&abs(i-cy)<3&&abs(j-cx)<3&&map[l][i][j]=='w'&&revealed[l][i][j]==1)||(themed[l][i][j]!=5&&map[l][i][j]=='w'&&revealed[l][i][j]==1)){
+                
+                attron(COLOR_PAIR(16));
+                mvprintw(i,j,"܀");
+                attroff(COLOR_PAIR(16));
+            }
+            else if(map[l][i][j+1]!='<'&&map[l][i][j+1]!='>'&&(themed[l][i][j]==5&&abs(i-cy)<3&&abs(j-cx)<3&&map[l][i][j]=='a'&&revealed[l][i][j]==1)||(themed[l][i][j]!=5&&map[l][i][j]=='a'&&revealed[l][i][j]==1)){
+                
+                attron(COLOR_PAIR(108));
+                mvprintw(i,j,"ܤ");
+                attroff(COLOR_PAIR(108));
+            }
             else if((map[l][i][j+1]=='<'||map[l][i][j+1]=='>')&&map[l][i][j]=='f'){
                 map[l][i][j]='.';
             }
@@ -617,7 +651,7 @@ void reveal_map(int map[5][200][200], int cy, int cx) {
     }
 
 }
-void reveal_path(int map[5][200][200], int cy, int cx, int pery, int perx) {
+void reveal_path(int map[6][200][200], int cy, int cx, int pery, int perx) {
     if (cy < 0 || cy >= 120 || cx < 0 || cx >= 198) return;
     if(map[l][cy][cx]=='+'){mvprintw(cy, cx, "%c", map[l][cy][cx]);
     revealed[l][cy][cx] = 1;return;}

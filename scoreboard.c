@@ -42,7 +42,7 @@ void submit() {
             if (score > tempscore) {
                 fprintf(file, "%s %d %d %d %d\n", user.user_name, score, game_finished+1, a, b);
             } else {
-                fprintf(file, "%s %d %d %d %d\n", user.user_name, tempscore, game_finished+1, allcoin, xp);
+                fprintf(file, "%s %d %d %d %d\n", user.user_name, tempscore, (game_finished+1), allcoin, xp);
             }
         } else {
             fputs(lines[i], file);

@@ -10,6 +10,7 @@
 #include "sign_in.h"
 #include <unistd.h>
 #include "setting_menu.h"
+#include "main_game.h"
 
 void print_music_menu(int startx, int starty, int highlight, char **choices, int n_choices) {
     int x = startx + 2, y = starty + 2;
